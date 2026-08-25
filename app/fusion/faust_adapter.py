@@ -116,26 +116,22 @@ class FaustTranslator:
             }
 
         if operation == "add_dimension":
-            name = str(a.get("name", ""))
-            is_angle = name.endswith("_deg") or "angle" in name
-            if is_angle:
-                value = _deg(a.get("value_deg", a.get("value")))
-                return {"dimension_type": "angular", "value": value,
-                        **({"sketch_name": a["sketch"]} if a.get("sketch") else {})}
-            value = a.get("value_mm", a.get("value"))
-            dim_type = "diameter" if ("hole" in name or "diameter" in name) else "distance"
-            return {"dimension_type": dim_type, "value": _cm(value),
-                    **({"sketch_name": a["sketch"]} if a.get("sketch") else {})}
+            # Their add-in dereferences entity_one/entity_two (e.g.
+            # e1.startSketchPoint); without tracked sketch-entity indices any
+            # call fails inside Fusion and halts the plan. Skip cleanly.
+            raise UnsupportedTranslation(
+                "dimensions require sketch-entity indices we don't track "
+                "semantically; the sketch stays under-constrained but valid")
 
         if operation == "add_constraint":
             ctype = self.CONSTRAINT_MAP.get(str(a.get("type", "")).lower())
-            if ctype is None:
-                # e.g. generic "angle" constraints need entity indices we don't
-                # track semantically; skip rather than corrupt the sketch.
-                raise UnsupportedTranslation(
-                    f"constraint type '{a.get('type')}' not mappable without entity indices")
-            return {"constraint_type": ctype,
-                    **({"sketch_name": a["sketch"]} if a.get("sketch") else {})}
+            # Same entity-index problem as dimensions: the add-in resolves
+            # entities by index and would error on None. Skip rather than
+            # halt the plan.
+            raise UnsupportedTranslation(
+                "constraints require sketch-entity indices we don't track "
+                "semantically"
+                + (f" (type '{ctype}' would map)" if ctype else ""))
 
         if operation == "extrude":
             return {"height": _cm(a["distance_mm"]), "operation": "new_body",
@@ -169,13 +165,26 @@ class FaustTranslator:
 
         if operation == "export_model":
             fmt = str(a.get("format", "stl")).lower()
-            return {"path": a.get("path", "./model"), "format": fmt}
+            return {"file_path": a.get("path", "./model"), "format": fmt}
 
         if operation in ("inspect_model",):
             return {}
 
         # Unknown op: pass through untouched; schema validation still applies.
         return a
+
+
+def _xyz(triple: Any) -> tuple[Any, Any, Any]:
+    """Extract (x, y, z) from a list [x,y,z] or dict {x,y,z} payload.
+
+    The real add-in and mock return lists (e.g. ``"size": [8.0, 0.5, 12.0]``);
+    dicts are accepted defensively.
+    """
+    if isinstance(triple, (list, tuple)) and len(triple) == 3:
+        return triple[0], triple[1], triple[2]
+    if isinstance(triple, dict):
+        return triple.get("x"), triple.get("y"), triple.get("z")
+    return None, None, None
 
 
 async def parse_scene_info(scene: dict[str, Any], bbox_fetch) -> dict[str, Any]:
@@ -203,12 +212,11 @@ async def parse_scene_info(scene: dict[str, Any], bbox_fetch) -> dict[str, Any]:
             # Server may not expose bbox (e.g. mock mode) — keep the name so
             # body-count checks still work.
             return name, {"bbox": None, "volume_mm3": None}
-        size = raw.get("size") or {}
-        w, d, h = size.get("x"), size.get("y"), size.get("z")
+        w, d, h = _xyz(raw.get("size"))
         if None in (w, d, h):
-            mx, mn = raw.get("max"), raw.get("min")
-            if mx and mn:
-                w, d, h = (mx["x"] - mn["x"], mx["y"] - mn["y"], mx["z"] - mn["z"])
+            mx, mn = _xyz(raw.get("max")), _xyz(raw.get("min"))
+            if None not in mx and None not in mn:
+                w, d, h = (mx[0] - mn[0], mx[1] - mn[1], mx[2] - mn[2])
         if None in (w, d, h):
             return name, {"bbox": None, "volume_mm3": raw.get("volume_mm3")}
         return name, {"bbox": {"w": round(w * MM_PER_CM, 2),

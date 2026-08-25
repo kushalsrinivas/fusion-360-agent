@@ -21,10 +21,13 @@ FAUST_TOOLS = {
             "required": ["radius"]}},
         {"name": "add_dimension", "inputSchema": {"type": "object", "properties": {
             "dimension_type": {"type": "string"}, "value": {"type": "number"},
+            "entity_one": {"type": "integer"}, "entity_two": {"type": "integer"},
             "sketch_name": {"type": "string"}},
             "required": ["dimension_type", "value"]}},
         {"name": "add_constraint", "inputSchema": {"type": "object", "properties": {
-            "constraint_type": {"type": "string"}, "sketch_name": {"type": "string"}},
+            "constraint_type": {"type": "string"},
+            "entity_one": {"type": "integer"}, "entity_two": {"type": "integer"},
+            "sketch_name": {"type": "string"}},
             "required": ["constraint_type"]}},
         {"name": "extrude", "inputSchema": {"type": "object", "properties": {
             "height": {"type": "number"},
@@ -69,24 +72,15 @@ def test_cut_extrude_maps_to_extrude_cut(tr):
     assert out["height"] == 1.5
 
 
-def test_dimension_types(tr):
-    dist = tr.translate("add_dimension", {"sketch": "s1", "name": "slot_width", "value": 20})
-    assert dist == {"dimension_type": "distance", "value": 2.0, "sketch_name": "s1"}
-
-    ang = tr.translate("add_dimension", {"sketch": "s1", "name": "viewing_angle_deg",
-                                         "value_deg": 20})
-    assert ang["dimension_type"] == "angular" and ang["value"] == 20.0  # degrees untouched
-
-    dia = tr.translate("add_dimension", {"sketch": "s1", "name": "hole_diameter", "value": 5})
-    assert dia["dimension_type"] == "diameter" and dia["value"] == 0.5
-
-
-def test_constraint_symmetric_maps_to_symmetry(tr):
-    out = tr.translate("add_constraint", {"sketch": "s1", "type": "symmetric"})
-    assert out["constraint_type"] == "symmetry"
-
+def test_dimensions_and_constraints_skip_without_entity_indices(tr):
+    # The real add-in resolves sketch entities by index and dereferences them
+    # (e1.startSketchPoint); without tracked indices these must be skipped
+    # cleanly (UnsupportedTranslation), never sent to Fusion.
     with pytest.raises(UnsupportedTranslation):
-        tr.translate("add_constraint", {"sketch": "s1", "type": "angle"})
+        tr.translate("add_dimension", {"sketch": "s1", "name": "slot_width",
+                                       "value": 20})
+    with pytest.raises(UnsupportedTranslation):
+        tr.translate("add_constraint", {"sketch": "s1", "type": "symmetric"})
 
 
 def test_unsupported_delete_body_raises(tr):
@@ -122,7 +116,8 @@ async def test_parse_scene_info_normalizes_units():
     from app.fusion.faust_adapter import parse_scene_info
 
     async def bbox_fetch(name: str) -> dict:
-        return {"size": {"x": 8.0, "y": 0.5, "z": 12.0}}  # cm
+        # Real add-in payload shape: size/min/max are LISTS [x, y, z] in cm.
+        return {"size": [8.0, 0.5, 12.0]}
 
     scene = {"bodies": [{"name": "Body1"}, "Body2"], "sketches": ["a", "b"],
              "components": [], "constraints": [1, 2]}
@@ -130,3 +125,20 @@ async def test_parse_scene_info_normalizes_units():
     assert summary["sketch_count"] == 2
     assert summary["bodies"]["Body1"]["bbox"]["w"] == 80.0   # cm -> mm
     assert summary["bodies"]["Body2"]["bbox"]["h"] == 120.0
+
+
+@pytest.mark.asyncio
+async def test_parse_scene_info_handles_min_max_fallback():
+    from app.fusion.faust_adapter import parse_scene_info
+
+    async def bbox_fetch(name: str) -> dict:
+        return {"min": [0.0, 0.0, 0.0], "max": [4.0, 3.0, 2.5]}  # cm lists
+
+    scene = {"bodies": ["Body1"]}
+    summary = await parse_scene_info(scene, bbox_fetch)
+    assert summary["bodies"]["Body1"]["bbox"] == {"w": 40.0, "d": 30.0, "h": 25.0}
+
+
+def test_export_uses_file_path_arg(tr):
+    out = tr.translate("export_model", {"format": "stl", "path": "/tmp/part"})
+    assert out == {"file_path": "/tmp/part", "format": "stl"}
