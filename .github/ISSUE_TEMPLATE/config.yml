@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/kushalsrinivas/fusion-360-agent/security/advisories/new
+    about: Report security issues privately, not in a public issue.
+  - name: Usage questions
+    url: https://github.com/kushalsrinivas/fusion-360-agent/discussions
+    about: Ask setup or usage questions in Discussions.

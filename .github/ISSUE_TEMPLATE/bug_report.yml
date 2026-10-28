@@ -1,0 +1,68 @@
+name: Bug report
+description: Report a reproducible problem with the agent, TUI, or Fusion bridge
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. Please remove API keys, tokens, and personal
+        paths from logs before submitting.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the problem and the expected behavior.
+      placeholder: The agent connected but every tool call returned...
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: The exact command or TUI input that triggers the issue.
+      placeholder: |
+        1. Run `python -m app.main --mode faust --headless "..."`
+        2. ...
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version / commit
+      description: Output of `git rev-parse --short HEAD` or the release version.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Bridge mode
+      options:
+        - mock
+        - faust (live Fusion 360)
+        - faust-mock
+        - stdio
+        - http
+        - not sure
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Python version, and Fusion 360 version if relevant.
+      placeholder: Windows 11, Python 3.14.0, Fusion 2705
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Full traceback or agent output, with secrets removed.
+      render: shell

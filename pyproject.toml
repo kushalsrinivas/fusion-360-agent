@@ -2,13 +2,33 @@
 name = "fusion-ai-cad-agent"
 version = "0.1.0"
 description = "Terminal-based agentic CAD system: LangGraph orchestration + Fusion 360 MCP execution"
+readme = "README.md"
 requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "Kushal Srinivas", email = "kushal.s.2005@gmail.com" },
+]
+keywords = ["fusion-360", "cad", "mcp", "langgraph", "llm", "agent", "autodesk"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Manufacturing",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Multimedia :: Graphics :: 3D Modeling",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
 dependencies = [
     "langgraph>=0.2.60",
     "textual>=0.86.0",
     "rich>=13.7",
     "openai>=1.50",
-    "mcp>=1.12,<1.17",
+    "mcp>=1.30,<2",
     "pydantic>=2.7",
     "python-dotenv>=1.0",
 ]
@@ -18,6 +38,12 @@ dev = ["pytest>=8.0", "pytest-asyncio>=0.24"]
 
 [project.scripts]
 fusion-ai = "app.main:cli"
+
+[project.urls]
+Homepage = "https://github.com/kushalsrinivas/fusion-360-agent"
+Repository = "https://github.com/kushalsrinivas/fusion-360-agent"
+Issues = "https://github.com/kushalsrinivas/fusion-360-agent/issues"
+Changelog = "https://github.com/kushalsrinivas/fusion-360-agent/blob/main/CHANGELOG.md"
 
 [build-system]
 requires = ["hatchling"]
