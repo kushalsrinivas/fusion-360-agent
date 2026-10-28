@@ -52,7 +52,7 @@ class LLMClient:
         system: str,
         user: str,
         schema: dict[str, Any],
-        max_tokens: int = 2000,
+        max_tokens: int = 8192,
     ) -> dict[str, Any]:
         if not self.available:
             raise OfflineModeError("No OPENAI_API_KEY configured; using offline heuristics")
@@ -73,7 +73,16 @@ class LLMClient:
                 "json_schema": {"name": "cad_agent_output", "schema": schema, "strict": False},
             },
         )
-        content = response.choices[0].message.content or "{}"
+        content = (response.choices[0].message.content or "").strip()
+        if content.startswith("```"):
+            lines = content.splitlines()
+            if lines and lines[0].startswith("```"):
+                lines = lines[1:]
+            if lines and lines[-1].startswith("```"):
+                lines = lines[:-1]
+            content = "\n".join(lines).strip()
+        if not content:
+            content = "{}"
         data = json.loads(content)
         if not isinstance(data, dict):
             raise ValueError(f"LLM returned non-object JSON: {type(data)}")

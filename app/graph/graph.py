@@ -1,4 +1,4 @@
-"""Graph assembly: the central LangGraph state machine.
+r"""Graph assembly: the central LangGraph state machine.
 
     requirements -> planner -> review -> executor -> inspector
                         ^         |          |          |
@@ -36,7 +36,13 @@ async def prepare_runtime(state: AgentState) -> dict:
     bridge = state.get("bridge")
     if bridge is None:
         raise RuntimeError("No Fusion bridge attached to state")
-    await bridge.connect()
+    try:
+        await bridge.connect()
+    except Exception as exc:
+        from app.models.events import EventBus, EventType
+        EventBus.get().emit("runtime", EventType.ERROR,
+                            f"Failed to connect to Fusion MCP ({getattr(bridge, 'mode', 'unknown')}): {exc}")
+        raise
 
     translator = None
     if getattr(bridge, "profile", None) == "faust":

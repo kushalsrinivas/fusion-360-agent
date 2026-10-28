@@ -113,13 +113,8 @@ async def inspector_node(state: AgentState) -> dict[str, Any]:
                         and s.result), None)
             if cut is not None:
                 reported_slot = cut.result.get("effective_width")
-        elif len(bodies) > 0:
-            checks.append(CheckResult(
-                name="slot_width", passed=True,
-                detail="server does not report per-cut widths; skipping measurement",
-            ))
-            reported_slot = "skipped"
-            drift = abs(reported_slot - float(slot_d.value_mm))
+        if reported_slot is not None and isinstance(reported_slot, (int, float)):
+            drift = abs(float(reported_slot) - float(slot_d.value_mm))
             checks.append(CheckResult(
                 name="slot_width",
                 passed=drift <= DIM_TOL_MM,
@@ -127,6 +122,11 @@ async def inspector_node(state: AgentState) -> dict[str, Any]:
                        + ("" if drift <= DIM_TOL_MM else " — tolerance exceeded"),
                 expected=float(slot_d.value_mm),
                 actual=reported_slot,
+            ))
+        elif len(bodies) > 0:
+            checks.append(CheckResult(
+                name="slot_width", passed=True,
+                detail="server does not report per-cut widths; skipping measurement",
             ))
 
     thick = req.dim("thickness") or req.dim("backplate_thickness")

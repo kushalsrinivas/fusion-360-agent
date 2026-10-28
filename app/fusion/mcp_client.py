@@ -46,16 +46,37 @@ class MockFusionClient:
     TOOLS: dict[str, dict[str, Any]] = {
         "create_component": {"desc": "Create a new component", "required": ["name"]},
         "create_sketch": {"desc": "Create a sketch on a plane", "required": ["name", "plane"]},
+        "create_construction_plane": {"desc": "Create construction plane", "required": []},
         "draw_rectangle": {"desc": "Draw a rectangle", "required": ["sketch", "width_mm", "depth_mm"]},
-        "draw_circle": {"desc": "Draw a circle", "required": ["sketch", "diameter_mm", "x_mm", "y_mm"]},
+        "draw_circle": {"desc": "Draw a circle", "required": ["sketch", "diameter_mm"]},
+        "draw_line": {"desc": "Draw a line in sketch", "required": []},
+        "draw_arc": {"desc": "Draw an arc in sketch", "required": []},
+        "draw_spline": {"desc": "Draw a spline in sketch", "required": []},
+        "create_polygon": {"desc": "Draw a regular polygon", "required": []},
         "add_dimension": {"desc": "Add a driving dimension to a sketch", "required": ["sketch", "name", "value"]},
         "add_constraint": {"desc": "Add a constraint", "required": ["sketch", "type"]},
         "extrude": {"desc": "Extrude a sketch profile into a body", "required": ["sketch", "distance_mm", "body_name"]},
         "cut_extrude": {"desc": "Cut through a body using a profile", "required": ["sketch", "distance_mm"]},
+        "revolve": {"desc": "Revolve sketch profile around axis", "required": []},
+        "loft": {"desc": "Loft profiles into solid body", "required": []},
+        "sweep": {"desc": "Sweep profile along path", "required": []},
+        "shell": {"desc": "Hollow body to create walls", "required": []},
+        "create_hole": {"desc": "Create hole feature", "required": []},
         "fillet": {"desc": "Apply fillets to edges", "required": ["body_name", "radius_mm"]},
         "chamfer": {"desc": "Apply chamfer", "required": ["body_name", "distance_mm"]},
+        "circular_pattern": {"desc": "Pattern feature/body in circular array", "required": []},
         "rectangular_pattern": {"desc": "Pattern a feature", "required": ["count_x", "spacing_mm"]},
+        "mirror": {"desc": "Mirror body across plane", "required": []},
+        "boolean_operation": {"desc": "Combine/cut/join bodies", "required": []},
+        "create_box": {"desc": "Create solid box primitive", "required": []},
+        "create_cylinder": {"desc": "Create solid cylinder primitive", "required": []},
+        "create_sphere": {"desc": "Create solid sphere primitive", "required": []},
+        "create_torus": {"desc": "Create solid torus primitive", "required": []},
+        "move_body": {"desc": "Translate body in 3D", "required": []},
+        "scale_body": {"desc": "Scale body in 3D", "required": []},
+        "set_appearance": {"desc": "Set material appearance", "required": []},
         "delete_body": {"desc": "Delete a body (destructive)", "required": ["body_name"]},
+        "delete_all": {"desc": "Delete all timeline items", "required": []},
         "inspect_model": {"desc": "Inspect current document state", "required": []},
         "export_model": {"desc": "Export model to STL/STEP", "required": ["path", "format"]},
     }
@@ -217,6 +238,109 @@ class MockFusionClient:
     def _op_rectangular_pattern(self, count_x: int, spacing_mm: float, **_: Any) -> dict[str, Any]:
         return {"pattern_count": count_x, "spacing_mm": spacing_mm}
 
+    def _op_draw_line(self, **_: Any) -> dict[str, Any]:
+        return {"line": "created"}
+
+    def _op_draw_arc(self, **_: Any) -> dict[str, Any]:
+        return {"arc": "created"}
+
+    def _op_draw_spline(self, **_: Any) -> dict[str, Any]:
+        return {"spline": "created"}
+
+    def _op_create_polygon(self, **_: Any) -> dict[str, Any]:
+        return {"polygon": "created"}
+
+    def _op_create_construction_plane(self, **_: Any) -> dict[str, Any]:
+        return {"plane": "created"}
+
+    def _op_revolve(self, sketch: str = "", angle_deg: float = 360.0, body_name: str = "revolved_body", **args: Any) -> dict[str, Any]:
+        name = args.get("name", body_name)
+        self.doc["bodies"][name] = {
+            "volume_mm3": 1000.0,
+            "bbox": {"w": 20.0, "d": 20.0, "h": 20.0},
+            "source_sketch": sketch,
+        }
+        return {"body": name, "volume_mm3": 1000.0}
+
+    def _op_loft(self, profile_sketch_names: list | None = None, body_name: str = "lofted_body", **args: Any) -> dict[str, Any]:
+        name = args.get("name", body_name)
+        self.doc["bodies"][name] = {
+            "volume_mm3": 2000.0,
+            "bbox": {"w": 30.0, "d": 30.0, "h": 50.0},
+        }
+        return {"body": name, "volume_mm3": 2000.0}
+
+    def _op_sweep(self, body_name: str = "swept_body", **args: Any) -> dict[str, Any]:
+        name = args.get("name", body_name)
+        self.doc["bodies"][name] = {
+            "volume_mm3": 1500.0,
+            "bbox": {"w": 25.0, "d": 25.0, "h": 40.0},
+        }
+        return {"body": name, "volume_mm3": 1500.0}
+
+    def _op_shell(self, body_name: str = "Body1", thickness_mm: float = 2.0, **_: Any) -> dict[str, Any]:
+        return {"body": body_name, "shell_thickness_mm": thickness_mm}
+
+    def _op_create_hole(self, diameter_mm: float = 5.0, depth_mm: float = 10.0, **_: Any) -> dict[str, Any]:
+        return {"hole": "created", "diameter_mm": diameter_mm, "depth_mm": depth_mm}
+
+    def _op_circular_pattern(self, count: int = 4, **_: Any) -> dict[str, Any]:
+        return {"circular_pattern_count": count}
+
+    def _op_mirror(self, body_name: str = "Body1", **_: Any) -> dict[str, Any]:
+        return {"mirrored_body": body_name}
+
+    def _op_boolean_operation(self, operation: str = "join", target_body: str = "Body1", **_: Any) -> dict[str, Any]:
+        return {"boolean": operation, "target": target_body}
+
+    def _op_create_box(self, length_mm: float = 10.0, width_mm: float = 10.0, height_mm: float = 10.0, body_name: str = "box_body", **args: Any) -> dict[str, Any]:
+        name = args.get("name", body_name)
+        self.doc["bodies"][name] = {
+            "volume_mm3": float(length_mm) * float(width_mm) * float(height_mm),
+            "bbox": {"w": float(width_mm), "d": float(length_mm), "h": float(height_mm)},
+        }
+        return {"body": name, "volume_mm3": self.doc["bodies"][name]["volume_mm3"]}
+
+    def _op_create_cylinder(self, radius_mm: float = 10.0, height_mm: float = 20.0, body_name: str = "cylinder_body", **args: Any) -> dict[str, Any]:
+        name = args.get("name", body_name)
+        vol = math.pi * (float(radius_mm) ** 2) * float(height_mm)
+        self.doc["bodies"][name] = {
+            "volume_mm3": round(vol, 2),
+            "bbox": {"w": float(radius_mm) * 2, "d": float(radius_mm) * 2, "h": float(height_mm)},
+        }
+        return {"body": name, "volume_mm3": round(vol, 2)}
+
+    def _op_create_sphere(self, radius_mm: float = 10.0, body_name: str = "sphere_body", **args: Any) -> dict[str, Any]:
+        name = args.get("name", body_name)
+        vol = (4/3) * math.pi * (float(radius_mm) ** 3)
+        self.doc["bodies"][name] = {
+            "volume_mm3": round(vol, 2),
+            "bbox": {"w": float(radius_mm) * 2, "d": float(radius_mm) * 2, "h": float(radius_mm) * 2},
+        }
+        return {"body": name, "volume_mm3": round(vol, 2)}
+
+    def _op_create_torus(self, major_radius_mm: float = 20.0, minor_radius_mm: float = 5.0, body_name: str = "torus_body", **args: Any) -> dict[str, Any]:
+        name = args.get("name", body_name)
+        self.doc["bodies"][name] = {
+            "volume_mm3": 1000.0,
+            "bbox": {"w": float(major_radius_mm) * 2, "d": float(major_radius_mm) * 2, "h": float(minor_radius_mm) * 2},
+        }
+        return {"body": name}
+
+    def _op_move_body(self, body_name: str = "Body1", **_: Any) -> dict[str, Any]:
+        return {"moved": body_name}
+
+    def _op_scale_body(self, body_name: str = "Body1", scale: float = 1.0, **_: Any) -> dict[str, Any]:
+        return {"scaled": body_name, "scale": scale}
+
+    def _op_set_appearance(self, **_: Any) -> dict[str, Any]:
+        return {"appearance": "set"}
+
+    def _op_delete_all(self, **_: Any) -> dict[str, Any]:
+        self.doc["bodies"].clear()
+        self.doc["sketches"].clear()
+        return {"deleted_all": True}
+
     def _op_delete_body(self, body_name: str, **_: Any) -> dict[str, Any]:
         if body_name not in self.doc["bodies"]:
             return {"success": False, "error": f"Body '{body_name}' does not exist"}
@@ -273,11 +397,17 @@ class StdioMCPClient:
         self._ctx: Any = None
         self.config: Any = None  # attached by callers for limits access
 
+    @property
+    def connected(self) -> bool:
+        return self._session is not None
+
     async def connect(self) -> None:
+        import shutil
         from mcp import ClientSession, StdioServerParameters
         from mcp.client.stdio import stdio_client
 
-        params = StdioServerParameters(command=self._cmd, args=self._args)
+        cmd = shutil.which(self._cmd) or self._cmd
+        params = StdioServerParameters(command=cmd, args=self._args)
         self._ctx = stdio_client(params)
         read, write = await self._ctx.__aenter__()
         self._session = ClientSession(read, write)
@@ -398,6 +528,10 @@ class HttpMCPClient(StdioMCPClient):
         self._session = None
         self._ctx = None
         self.config: Any = None
+
+    @property
+    def connected(self) -> bool:
+        return self._session is not None
 
     async def connect(self) -> None:
         from mcp import ClientSession

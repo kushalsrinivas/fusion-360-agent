@@ -192,9 +192,9 @@ class CadAgentApp(App):
         self.session.request_history.append(text)
         self._run_agent(text)
 
-    @work(thread=True, exclusive=False)
-    def _run_agent(self, request: str) -> None:
-        """Run one full graph invocation on a worker thread."""
+    @work(exclusive=True)
+    async def _run_agent(self, request: str) -> None:
+        """Run one full graph invocation on the event loop."""
         self._busy.set()
         bus = EventBus.get()
         try:
@@ -208,7 +208,7 @@ class CadAgentApp(App):
             )
             state["bridge"] = self.bridge
 
-            final = asyncio.run(self._compiled_graph.ainvoke(state))
+            final = await self._compiled_graph.ainvoke(state)
 
             # Persist conversational context.
             if final.get("requirements"):
@@ -218,16 +218,16 @@ class CadAgentApp(App):
             SessionStore.default().save(self.session)
 
             statusbar = self.query_one("#statusbar", StatusBar)
-            self.call_from_thread(
-                statusbar.update_status,
-                "connected" if self.bridge.connected else "disconnected",
+            connected = getattr(self.bridge, "connected", False)
+            statusbar.update_status(
+                "connected" if connected else "disconnected",
                 "connected", final.get("status", "done"),
             )
             pipeline = self.query_one("#pipeline", PipelinePanel)
             ok = final.get("status") == "success"
-            self.call_from_thread(pipeline.mark, "inspector", "done" if ok else "error")
-            self.call_from_thread(pipeline.mark, "finish", "done" if ok else "error")
-            self.call_from_thread(lambda: self.query_one("#log", RichLog).write(""))
+            pipeline.mark("inspector", "done" if ok else "error")
+            pipeline.mark("finish", "done" if ok else "error")
+            self.query_one("#log", RichLog).write("")
         except Exception as exc:
             bus.emit("system", EventType.ERROR, f"Run crashed: {exc}")
         finally:

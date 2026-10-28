@@ -10,6 +10,11 @@ import argparse
 import asyncio
 import sys
 
+if sys.stdout and hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if sys.stderr and hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 from app.config import get_config
 from app.models.events import EventBus, EventType
 from app.graph.graph import build_graph
@@ -68,7 +73,7 @@ def run_headless(config, request: str) -> int:
                 EventType.SUMMARY: "\033[32m",
             }.get(event.type, "")
             reset = "\033[0m" if style else ""
-            print(f"{style}{event.line()}{reset}")
+            print(f"{style}{event.line()}{reset}", flush=True)
 
         unsub = EventBus.get().subscribe(print_event)
         try:

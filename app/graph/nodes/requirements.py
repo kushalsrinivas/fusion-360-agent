@@ -152,10 +152,13 @@ async def requirements_node(state: AgentState) -> dict[str, Any]:
                 context = f"Current design context: {R(**prior).to_prompt()}\n"
             data = await llm.complete_json(
                 system=(
-                    "You are a CAD requirements analyst. Convert the user's natural-language "
-                    "request into structured CAD requirements. Use millimeters. Only mark "
-                    "dimensions 'user' when explicitly stated; use 'default' otherwise. "
-                    "List genuinely required missing information in open_questions."
+                    "You are an expert CAD Requirements Analyst for Fusion 360.\n"
+                    "Convert the user's natural language request into structured CAD requirements.\n"
+                    "Extract all explicit and implied geometric features (e.g., 'fillet', 'chamfer', 'shell', "
+                    "'mounting_holes', 'circular_pattern', 'counterbore', 'hollow', 'flange', 'threads').\n"
+                    "Always use millimeters (mm) for linear dimensions and degrees (deg) for angles.\n"
+                    "Identify the object type accurately (e.g., 'cube', 'bracket', 'flanged_shaft', 'coffee_mug', 'enclosure', 'gear', 'vase').\n"
+                    "Only mark dimensions 'user' when explicitly stated by user; otherwise use 'inferred' or 'default'."
                 ),
                 user=context + f"Request: {text}",
                 schema=REQUIREMENTS_SCHEMA,
@@ -177,12 +180,11 @@ async def requirements_node(state: AgentState) -> dict[str, Any]:
 
     apply_defaults(merged)
 
-    # Critical missing info check — only ask when truly blocking.
+    # Critical missing info check — check if at least one dimensional scale is defined
+    has_any_dim = any(d.value_mm is not None or d.value_deg is not None for d in merged.dimensions)
     blocking: list[str] = []
-    for dim, label in CRITICAL_DIMS.items():
-        d = merged.dim(dim)
-        if d is None or (d.value_mm is None and d.value_deg is None):
-            blocking.append(f"Specify {label}")
+    if not has_any_dim:
+        blocking.append("Specify overall dimensions (e.g. width, height, diameter in mm)")
     merged.open_questions = [q for q in merged.open_questions if q] or blocking
 
     bus.emit(NODE, EventType.STATUS, "Requirements extracted",

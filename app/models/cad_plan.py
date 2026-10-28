@@ -19,23 +19,51 @@ class StepStatus(str, Enum):
 # Operations the planner may emit. Anything outside this set is rejected
 # before it can reach Fusion (safety: no free-form tool invocation).
 KNOWN_OPERATIONS = {
+    # Component & Sketches
     "create_component",
     "create_sketch",
+    "create_construction_plane",
+    # Sketch Curves & Primitives
     "draw_rectangle",
     "draw_circle",
+    "draw_line",
+    "draw_arc",
+    "draw_spline",
+    "create_polygon",
+    # Constraints & Dimensions
     "add_dimension",
     "add_constraint",
+    # 3D Features & Solids
     "extrude",
     "cut_extrude",
+    "revolve",
+    "loft",
+    "sweep",
+    "shell",
+    "create_hole",
     "fillet",
     "chamfer",
+    # Patterns, Symmetry & Transforms
+    "circular_pattern",
     "rectangular_pattern",
+    "mirror",
+    "boolean_operation",
+    "move_body",
+    "scale_body",
+    # Direct 3D Primitives
+    "create_box",
+    "create_cylinder",
+    "create_sphere",
+    "create_torus",
+    # Inspection & Management
+    "set_appearance",
     "delete_body",          # destructive -> requires approval
+    "delete_all",           # destructive -> requires approval
     "inspect_model",
     "export_model",
 }
 
-DESTRUCTIVE_OPERATIONS = {"delete_body"}
+DESTRUCTIVE_OPERATIONS = {"delete_body", "delete_all"}
 
 
 class PlanStep(BaseModel):
@@ -103,12 +131,17 @@ class CADPlan(BaseModel):
         return any(s.status == StepStatus.FAILED for s in self.steps)
 
     def body_names(self) -> list[str]:
-        """Expected solid bodies implied by extrude steps."""
+        """Expected solid bodies implied by solid creation steps."""
         names = []
+        body_creators = {
+            "extrude", "revolve", "loft", "sweep",
+            "create_box", "create_cylinder", "create_sphere", "create_torus",
+            "boolean_operation",
+        }
         for s in self.steps:
-            if s.operation == "extrude":
-                name = s.args.get("body_name") or s.args.get("name")
-                if name:
+            if s.operation in body_creators:
+                name = s.args.get("body_name") or s.args.get("name") or s.args.get("target_body")
+                if name and str(name) not in names:
                     names.append(str(name))
         return names
 

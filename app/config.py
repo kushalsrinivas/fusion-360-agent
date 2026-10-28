@@ -24,11 +24,13 @@ GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
 GEMINI_DEFAULT_MODEL = "gemini-2.5-flash"
 
 # Faust Machines fusion360-mcp-server (pypi: fusion360-mcp-server).
-# Their pyproject pins only mcp>=1.0, but the mcp SDK broke its low-level
-# server API after 1.16.x — pin the last known-good SDK.
-FAUST_MCP_PIN = "mcp==1.16.0"
-FAUST_COMMAND_SOCKET = f"uvx --with {FAUST_MCP_PIN} fusion360-mcp-server --mode socket"
-FAUST_COMMAND_MOCK = f"uvx --with {FAUST_MCP_PIN} fusion360-mcp-server --mode mock"
+# Their pyproject pins only mcp>=1.0, but mcp 1.17.x broke the server's
+# low-level API (1.16.0 then fails against pydantic 2.12+). 1.30.0 is
+# known good with current pydantic and Python 3.14.
+os.environ.setdefault("UV_LINK_MODE", "copy")
+FAUST_MCP_PIN = "mcp==1.30.0"
+FAUST_COMMAND_SOCKET = f"uvx --link-mode copy --with {FAUST_MCP_PIN} fusion360-mcp-server --mode socket"
+FAUST_COMMAND_MOCK = f"uvx --link-mode copy --with {FAUST_MCP_PIN} fusion360-mcp-server --mode mock"
 
 
 @dataclass
